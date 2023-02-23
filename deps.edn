@@ -1,8 +1,10 @@
 {:deps
  {org.clojure/clojure
   {:mvn/version "1.11.1"}
-  io.github.aamedina/rdf
-  {:git/sha "670007cd8deb293bd3fa098a5b53bc4c765f80aa"}}
+  io.github.aamedina/mop
+  {:local/root "../mop"}
+  io.github.aamedina/openai
+  {:local/root "../openai"}}
  :paths ["src" "classes" "resources"]
  :aliases
  {:dev

@@ -300,7 +300,7 @@
     :as        class}]
   (->> (filter keyword? subClassOf)
        (map mop/class-direct-slots)
-       (mapcat #(sort isa? %))
+       (mapcat #(sort-by :db/ident isa? %))
        (into class-direct-slots (distinct))
        (map #(mop/compute-effective-slot-definition class % class-direct-slots))))
 

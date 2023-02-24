@@ -195,7 +195,7 @@
                                                       :direct-slots
                                                       :direct-superclasses
                                                       :metaclass))]
-    (intern *ns* (with-meta class-name {:initargs initargs}) instance)))
+    (mop/intern-class-using-env instance mop/*env*)))
 
 (defmethod mop/ensure-class-using-class :rdfs/Class
   [class class-name & {:keys [direct-default-initargs
@@ -205,13 +205,12 @@
                        :as   initargs}]
   (when-not (identical? (mop/class-of class) metaclass)
     (mop/change-class class metaclass))
-  (intern *ns*
-          (with-meta class-name {:initargs initargs})
-          (mop/reinitialize-instance class (dissoc initargs
-                                                   :direct-default-initargs
-                                                   :direct-slots
-                                                   :direct-superclasses
-                                                   :metaclass))))
+  (mop/intern-class-using-env (mop/reinitialize-instance class (dissoc initargs
+                                                                       :direct-default-initargs
+                                                                       :direct-slots
+                                                                       :direct-superclasses
+                                                                       :metaclass))
+                              mop/*env*))
 
 (defmethod mop/finalize-inheritance :rdfs/Class
   [class]
@@ -233,11 +232,6 @@
                                  :mop/class-default-initargs
                                  (mop/compute-default-initargs class))]
     (mop/intern-class-using-env class mop/*env*)))
-
-(defmethod mop/intern-class-using-env [:rdfs/Class nil]
-  [class env]
-  (let [{:keys [ns name]} (meta (:var (meta class)))]
-    (intern ns name class)))
 
 (defmethod mop/intern-class-using-env [:rdfs/Class xtdb.node.XtdbNode]
   [class env]

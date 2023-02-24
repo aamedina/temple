@@ -2,9 +2,9 @@
  {org.clojure/clojure
   {:mvn/version "1.11.1"}
   io.github.aamedina/mop
-  {:local/root "../mop"}
+  {:git/sha "bf24638ab532741957e6972d86d2f8c39356c4cd"}
   io.github.aamedina/openai
-  {:local/root "../openai"}}
+  {:git/sha "44567680df18891ae8849b729f2dcf92a5204042"}}
  :paths ["src" "classes" "resources"]
  :aliases
  {:dev

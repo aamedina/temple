@@ -178,11 +178,27 @@
 
 (defmethod mop/add-direct-subclass [:rdfs/Class :rdfs/Class]
   [superclass subclass]
-  (alter-instance superclass update :mop/class-direct-subclasses (fnil conj #{}) subclass))
+  (xt/submit-tx mop/*env*
+                [[::xt/put (update subclass
+                                   :rdfs/subClassOf
+                                   conj
+                                   (:db/ident superclass))]
+                 [::xt/put (update superclass
+                                   :mop/class-direct-subclasses
+                                   conj
+                                   (:db/ident subclass))]]))
 
 (defmethod mop/remove-direct-subclass [:rdfs/Class :rdfs/Class]
   [superclass subclass]
-  (alter-instance superclass update :mop/class-direct-subclasses (fnil disj #{}) subclass))
+  (xt/submit-tx mop/*env*
+                [[::xt/put (update subclass
+                                   :rdfs/subClassOf
+                                   #(into [] (remove #{%2}) %1)
+                                   (:db/ident superclass))]
+                 [::xt/put (update superclass
+                                   :mop/class-direct-subclasses
+                                   disj
+                                   (:db/ident subclass))]]))
 
 (defmethod mop/ensure-class-using-class nil
   [class class-name & {:keys [direct-default-initargs
@@ -214,37 +230,32 @@
 
 (defmethod mop/finalize-inheritance :rdfs/Class
   [class]
-  (let [class             (assoc class
-                                 :mop/class-direct-slots
-                                 (get-in rdf/*indexes* [:slots/by-domain (:db/ident class)]))
-        class             (assoc class
-                                 :mop/class-direct-default-initargs
-                                 (let [d (filter :sh/defaultValue (:mop/class-direct-slots class))]
-                                   (zipmap (map :db/ident d)
-                                           (map :sh/defaultValue d))))
-        class             (assoc class
-                                 :mop/class-precedence-list
-                                 (mop/compute-class-precedence-list class))
-        class             (assoc class
-                                 :mop/class-slots
-                                 (mop/compute-slots class))
-        class             (assoc class
-                                 :mop/class-default-initargs
-                                 (mop/compute-default-initargs class))]
+  (let [class (assoc class
+                     :mop/class-direct-slots
+                     (get-in rdf/*indexes* [:slots/by-domain (:db/ident class)]))
+        class (assoc class
+                     :mop/class-direct-default-initargs
+                     (let [d (filter :sh/defaultValue (:mop/class-direct-slots class))]
+                       (zipmap (map :db/ident d)
+                               (map :sh/defaultValue d))))
+        class (assoc class
+                     :mop/class-precedence-list
+                     (mop/compute-class-precedence-list class))
+        class (assoc class
+                     :mop/class-slots
+                     (mop/compute-slots class))
+        class (assoc class
+                     :mop/class-default-initargs
+                     (mop/compute-default-initargs class))
+        class (assoc class
+                     :mop/class-direct-subclasses
+                     (mop/class-direct-subclasses class))]
     (mop/intern-class-using-env class mop/*env*)))
 
 (defmethod mop/intern-class-using-env [:rdfs/Class xtdb.node.XtdbNode]
   [class env]
   (try
-    (xt/submit-tx env [[::xt/put (walk/prewalk (fn [form]
-                                                 (if (map? form)
-                                                   (reduce-kv (fn [m k v]
-                                                                (if (taoensso.nippy/freezable? v)
-                                                                  (assoc m k v)
-                                                                  m))
-                                                              {} form)
-                                                   form))
-                                               (assoc class :xt/id (:db/ident class)))]])
+    (xt/submit-tx env [[::xt/put (rdf/freezable class)]])
     (xt/sync env)
     (catch Throwable ex
       (throw (ex-info (.getMessage ex) {:class class} ex)))))
@@ -372,3 +383,19 @@
                                  :owl/Thing
                                  :oboInOwl/ObsoleteClass
                                  :oboInOwl/ObsoleteProperty))))
+
+(defmethod mop/class-direct-superclasses :rdfs/Class
+  [{:rdfs/keys [subClassOf]}]
+  (filterv keyword? subClassOf))
+
+(defmethod mop/class-direct-subclasses :rdfs/Class
+  [{:db/keys [ident]
+    :mop/keys [class-direct-subclasses]}]
+  (or class-direct-subclasses
+      (into #{}
+            (map first)
+            (xt/q (xt/db mop/*env*)
+                  '{:find  [?e]
+                    :in    [$ ?class]
+                    :where [[?e :rdfs/subClassOf ?class]]}
+                  ident))))

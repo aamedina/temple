@@ -298,11 +298,13 @@
     :rdf/keys  [type]
     :rdfs/keys [subClassOf]
     :as        class}]
+  ;; TODO: add inferred slots like if a slot is :rdf/type
+  ;; :owl/SymmetricProperty then it should also be included
   (->> (filter keyword? subClassOf)
        (mapcat mop/class-direct-slots)
        (concat class-direct-slots)
        (distinct)
-       (map #(mop/compute-effective-slot-definition class % class-direct-slots))))
+       (map #(mop/compute-effective-slot-definition class (:db/ident %) [%]))))
 
 (defmethod mop/slot-definition-initfunction :rdfs/Class
   [slot]
@@ -330,8 +332,13 @@
 
 (defmethod mop/compute-effective-slot-definition :rdfs/Class
   [class slot direct-slot-definitions]
-  ;; FIXME
-  (reduce (fn [effective-slot-def direct-slot-def]
+  ;; Should this be rethought completely since RDF has no conflicting
+  ;; slot names? It does have inheritance of property
+  ;; semantics. Should effective slot definitions incorporate all of
+  ;; that computed property precedence information? Probably? I think
+  ;; so.
+  (reduce merge direct-slot-definitions)
+  #_(reduce (fn [effective-slot-def direct-slot-def]
             (cond-> (-> effective-slot-def
                         (update :mop/slot-initargs
                                 (fnil into #{})
@@ -345,7 +352,7 @@
 
               (nil? (:mop/slot-allocation effective-slot-def))
               (assoc :mop/slot-allocation (mop/slot-definition-allocation direct-slot-def))))
-          slot
+          {:db/ident slot}
           direct-slot-definitions))
 
 (defmethod mop/validate-superclass [:rdfs/Class :rdfs/Class]

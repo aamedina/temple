@@ -271,7 +271,7 @@
   [class env]
   (try
     (xt/submit-tx env [[::xt/put (rdf/freezable class)]])
-    (xt/sync env)
+    #_(xt/sync env)
     (catch Throwable ex
       (throw (ex-info (.getMessage ex) {:class class} ex)))))
 
@@ -282,36 +282,27 @@
           class-direct-default-initargs
           (map mop/class-direct-default-initargs
                (keep mop/find-class (rest class-precedence-list)))))
+(comment
+  (xt/q (xt/db mop/*env*)
+        '{:find  [?class-direct-slots]
+          :in    [$ ?class]
+          :where [[?class :rdfs/subClassOf ?e]
+                  [?e :mop/class-direct-slots ?class-direct-slots]
+                  [?e :mop/class-direct-subclasses ?class-direct-subclasses]]}
+        :schema/Movie))
 
 (defmethod mop/compute-slots :rdfs/Class
-  [{:mop/keys [class-precedence-list
-               class-direct-slots]
-    :db/keys  [ident]
-    :rdf/keys [type]
-    :as       class}]
-  (transduce
-    (comp
-      (mapcat mop/class-direct-slots))
-    (completing
-      (fn [effective-slots slot]
-        (if (some #(identical? (:db/ident slot) (:db/ident %)) effective-slots)
-          effective-slots
-          (conj effective-slots
-                (mop/compute-effective-slot-definition class
-                                                       slot
-                                                       class-direct-slots)))))
-    []
-    (cond
-      (isa? type :rdf/Property)
-      nil
-
-      (contains? #{:owl/Class :rdfs/Class} ident)
-      class-precedence-list
-      
-      (isa? type :rdfs/Class)
-      (take-while (complement (conj #{:owl/Class :rdfs/Class} type)) class-precedence-list)
-
-      :else class-precedence-list)))
+  [{:mop/keys  [class-precedence-list
+                class-direct-slots]
+    :db/keys   [ident]
+    :rdf/keys  [type]
+    :rdfs/keys [subClassOf]
+    :as        class}]
+  (->> (filter keyword? subClassOf)
+       (map mop/class-direct-slots)
+       (mapcat #(sort isa? %))
+       (into class-direct-slots (distinct))
+       (map #(mop/compute-effective-slot-definition class % class-direct-slots))))
 
 (defmethod mop/slot-definition-initfunction :rdfs/Class
   [slot]
@@ -339,6 +330,7 @@
 
 (defmethod mop/compute-effective-slot-definition :rdfs/Class
   [class slot direct-slot-definitions]
+  ;; FIXME
   (reduce (fn [effective-slot-def direct-slot-def]
             (cond-> (-> effective-slot-def
                         (update :mop/slot-initargs

@@ -299,9 +299,9 @@
     :rdfs/keys [subClassOf]
     :as        class}]
   (->> (filter keyword? subClassOf)
-       (map mop/class-direct-slots)
-       (mapcat #(sort-by :db/ident isa? %))
-       (into class-direct-slots (distinct))
+       (mapcat mop/class-direct-slots)
+       (concat class-direct-slots)
+       (distinct)
        (map #(mop/compute-effective-slot-definition class % class-direct-slots))))
 
 (defmethod mop/slot-definition-initfunction :rdfs/Class

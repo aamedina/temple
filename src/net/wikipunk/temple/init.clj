@@ -165,7 +165,22 @@
 (defmethod mop/class-direct-slots :rdfs/Class
   [class]
   (or (not-empty (:mop/class-direct-slots class))
-      (get-in mop/*env* [:slots/by-domain (:db/ident class)])))
+      (get-in rdf/*indexes* [:slots/by-domain (:db/ident class)])
+      #_(into #{}
+            (comp
+              (map first)
+              (map mop/find-class))
+            (xt/q (xt/db mop/*env*)
+                  '{:find  [?e]
+                    :in    [$ ?class]
+                    :where [[?e :rdfs/domain ?domain]
+                            (or-join [?domain ?class]
+                                     [(== ?domain ?class)]
+                                     (and [(get ?domain :owl/unionOf) ?unionOf]
+                                          [(some? ?unionOf)]                              
+                                          [(identity ?unionOf) [?unionClass ...]]
+                                          [(== ?unionClass ?class)]))]}
+                  (:db/ident class)))))
 
 (defmethod mop/class-default-initargs :rdfs/Class
   [class]
@@ -232,7 +247,7 @@
   [class]
   (let [class (assoc class
                      :mop/class-direct-slots
-                     (get-in rdf/*indexes* [:slots/by-domain (:db/ident class)]))
+                     (mop/class-direct-slots class))
         class (assoc class
                      :mop/class-direct-default-initargs
                      (let [d (filter :sh/defaultValue (:mop/class-direct-slots class))]

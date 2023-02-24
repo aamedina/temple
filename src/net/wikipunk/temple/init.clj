@@ -9,7 +9,8 @@
    [net.wikipunk.mop :as mop :refer [isa? ancestors descendants parents]]
    [net.wikipunk.rdf :as rdf]
    [net.wikipunk.temple :as temple]
-   [net.wikipunk.boot])
+   [net.wikipunk.boot]
+   [taoensso.nippy :as nippy])
   (:refer-clojure :exclude [isa? ancestors descendants parents]))
 
 ;; TODO: Refactor using OWL semantics and datalog rules to infer properties
@@ -18,9 +19,10 @@
   [ident env]
   (rdf/find-metaobject ident))
 
-(defmethod mop/find-class-using-env [Object xtdb.node.XtdbNode]
+(defmethod mop/find-class-using-env [clojure.lang.Keyword xtdb.node.XtdbNode]
   [ident env]
-  (xt/entity (xt/db env) ident))
+  (or (xt/entity (xt/db env) ident)
+      (rdf/find-metaobject ident)))
 
 (defmethod mop/make-instance :rdfs/Class
   [class & {:as initargs}]
@@ -213,8 +215,7 @@
 
 (defmethod mop/finalize-inheritance :rdfs/Class
   [class]
-  (let [{:keys [ns name]} (meta (:var (meta class)))
-        class             (assoc class
+  (let [class             (assoc class
                                  :mop/class-direct-slots
                                  (get-in rdf/*indexes* [:slots/by-domain (:db/ident class)]))
         class             (assoc class
@@ -231,7 +232,28 @@
         class             (assoc class
                                  :mop/class-default-initargs
                                  (mop/compute-default-initargs class))]
+    (mop/intern-class-using-env class mop/*env*)))
+
+(defmethod mop/intern-class-using-env [:rdfs/Class nil]
+  [class env]
+  (let [{:keys [ns name]} (meta (:var (meta class)))]
     (intern ns name class)))
+
+(defmethod mop/intern-class-using-env [:rdfs/Class xtdb.node.XtdbNode]
+  [class env]
+  (try
+    (xt/submit-tx env [[::xt/put (walk/prewalk (fn [form]
+                                                 (if (map? form)
+                                                   (reduce-kv (fn [m k v]
+                                                                (if (taoensso.nippy/freezable? v)
+                                                                  (assoc m k v)
+                                                                  m))
+                                                              {} form)
+                                                   form))
+                                               (assoc class :xt/id (:db/ident class)))]])
+    (xt/sync env)
+    (catch Throwable ex
+      (throw (ex-info (.getMessage ex) {:class class} ex)))))
 
 (defmethod mop/compute-default-initargs :rdfs/Class
   [{:mop/keys [class-precedence-list
@@ -273,7 +295,7 @@
 
 (defmethod mop/slot-definition-initfunction :rdfs/Class
   [slot]
-  (:mop/slot-initfunction slot (constantly nil)))
+  (:mop/slot-initfunction slot nil))
 
 (defmethod mop/slot-definition-name :rdfs/Class
   [slot]

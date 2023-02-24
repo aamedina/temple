@@ -14,13 +14,13 @@
 
 ;; TODO: Refactor using OWL semantics and datalog rules to infer properties
 
-#_(defmethod mop/find-class-using-env [clojure.lang.Keyword Object]
-    [ident env]
-    (rdf/find-metaobject ident))
-
 (defmethod mop/find-class-using-env :default
   [ident env]
   (rdf/find-metaobject ident))
+
+(defmethod mop/find-class-using-env [Object xtdb.node.XtdbNode]
+  [ident env]
+  (xt/entity (xt/db env) ident))
 
 (defmethod mop/make-instance :rdfs/Class
   [class & {:as initargs}]

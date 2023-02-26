@@ -271,7 +271,8 @@
       (not-empty (concat (and ident (get-in rdf/*indexes* [:slots/by-domain ident]))
                          (some->> (remove keyword? (concat intersectionOf
                                                            unionOf
-                                                           subClassOf))
+                                                           (when-not (keyword? subClassOf)
+                                                             subClassOf)))
                                   (mapcat mop/class-direct-slots)
                                   (map rdf/direct-slot-definition)
                                   (group-by :db/ident)
@@ -404,6 +405,9 @@
 
                                                           (isa? ident :owl/Class)
                                                           #{:owl/Class :owl/ObjectProperty :rdf/Property}
+
+                                                          (identical? ident :rdfs/Class)
+                                                          #{}
 
                                                           :else
                                                           #{:rdfs/Class :owl/ObjectProperty :rdf/Property}))

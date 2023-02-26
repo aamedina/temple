@@ -301,7 +301,7 @@
     :as        class}]
   (if (some #{:owl/NamedIndividual} type)
     (->> (disj (set type) :owl/NamedIndividual)
-         (mapcat mop/compute-slots))
+         (mapcat mop/class-slots))
     (->> (filter keyword? (concat (take-while (complement (set type)) (rest class-precedence-list))
                                   subClassOf equivalentClass))
          (distinct)

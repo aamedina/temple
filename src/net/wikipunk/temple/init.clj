@@ -326,7 +326,8 @@
     :rdfs/keys [subClassOf]
     :owl/keys  [deprecated equivalentClass]
     :as        class}]
-  (->> (filter keyword? (concat (take-while (complement #{:owl/NamedIndividual :owl/Class :rdfs/Class})
+  (->> (filter keyword? (concat (take-while (complement #{:owl/NamedIndividual :owl/Class :rdfs/Class
+                                                          :owl/ObjectProperty :rdf/Property})
                                             (or class-precedence-list
                                                 (mop/compute-class-precedence-list class)))
                                 subClassOf

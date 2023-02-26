@@ -300,7 +300,7 @@
     :owl/keys  [deprecated equivalentClass]
     :as        class}]  
   (->> (filter keyword? (concat (take-while (complement (if (some #{:owl/NamedIndividual} type)
-                                                          #{:owl/Class}
+                                                          #{:owl/Class :owl/NamedIndividual}
                                                           (set type)))
                                             (rest (or class-precedence-list
                                                       (mop/compute-class-precedence-list class))))

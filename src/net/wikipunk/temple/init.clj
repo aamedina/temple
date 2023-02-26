@@ -298,18 +298,17 @@
     :rdf/keys  [type]
     :rdfs/keys [subClassOf]
     :owl/keys  [deprecated equivalentClass]
-    :as        class}]  
+    :as        class}]
   (->> (filter keyword? (concat (take-while (let [rdf-type (if (and (coll? type) (not (map? type)))
                                                              (set type)
                                                              #{type})]
                                               (complement (if (some #{:owl/NamedIndividual} rdf-type)
-                                                            #{:owl/Class :owl/NamedIndividual}
-                                                            (set rdf-type))))
+                                                            #{:owl/NamedIndividual}
+                                                            rdf-type)))
                                             (rest (or class-precedence-list
                                                       (mop/compute-class-precedence-list class))))
                                 subClassOf
                                 equivalentClass))
-       (distinct)
        (mapcat mop/class-direct-slots)
        (concat (or class-direct-slots (mop/class-direct-slots class)))
        (remove (fn [{:db/keys [ident] :rdf/keys [type]}] (some #(isa? % :owl/AnnotationProperty) type)))

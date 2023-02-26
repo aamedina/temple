@@ -46,8 +46,8 @@
 (defmethod mop/update-instance-for-different-class [Object Object]
   [previous current & {:as initargs}]
   (let [current-slots       (mop/class-slots (mop/class-of current))
-        previous-slot-names (mapv mop/slot-definition-name
-                                  (mop/class-slots (mop/class-of previous)))
+        previous-slot-names (map mop/slot-definition-name
+                                 (mop/class-slots (mop/class-of previous)))
         added-slots         (reduce (fn [added-slots slot]
                                       (let [n (mop/slot-definition-name slot)]
                                         (if (and (not (contains? previous-slot-names n))
@@ -162,25 +162,26 @@
   [class]
   (:mop/class-direct-default-initargs class {}))
 
+#_(into #{}
+        (comp
+          (map first)
+          (map mop/find-class))
+        (xt/q (xt/db mop/*env*)
+              '{:find  [?e]
+                :in    [$ ?class]
+                :where [[?e :rdfs/domain ?domain]
+                        (or-join [?domain ?class]
+                                 [(== ?domain ?class)]
+                                 (and [(get ?domain :owl/unionOf) ?unionOf]
+                                      [(some? ?unionOf)]                              
+                                      [(identity ?unionOf) [?unionClass ...]]
+                                      [(== ?unionClass ?class)]))]}
+              (:db/ident class)))
+
 (defmethod mop/class-direct-slots :rdfs/Class
   [class]
   (or (not-empty (:mop/class-direct-slots class))
-      (get-in rdf/*indexes* [:slots/by-domain (:db/ident class)])
-      #_(into #{}
-            (comp
-              (map first)
-              (map mop/find-class))
-            (xt/q (xt/db mop/*env*)
-                  '{:find  [?e]
-                    :in    [$ ?class]
-                    :where [[?e :rdfs/domain ?domain]
-                            (or-join [?domain ?class]
-                                     [(== ?domain ?class)]
-                                     (and [(get ?domain :owl/unionOf) ?unionOf]
-                                          [(some? ?unionOf)]                              
-                                          [(identity ?unionOf) [?unionClass ...]]
-                                          [(== ?unionClass ?class)]))]}
-                  (:db/ident class)))))
+      (get-in rdf/*indexes* [:slots/by-domain (:db/ident class)])))
 
 (defmethod mop/class-default-initargs :rdfs/Class
   [class]
@@ -189,7 +190,7 @@
 (defmethod mop/class-slots :rdfs/Class
   [class]
   (assert (mop/class-finalized? class))
-  (:mop/class-slots class))
+  (:mop/class-slots class (mop/compute-slots class)))
 
 (defmethod mop/add-direct-subclass [:rdfs/Class :rdfs/Class]
   [superclass subclass]
@@ -297,14 +298,16 @@
     :db/keys   [ident]
     :rdf/keys  [type]
     :rdfs/keys [subClassOf]
+    :owl/keys  [deprecated equivalentClass]
     :as        class}]
-  ;; TODO: add inferred slots like if a slot is :rdf/type
-  ;; :owl/SymmetricProperty then it should also be included
-  (->> (filter keyword? subClassOf)
-       (mapcat mop/class-direct-slots)
-       (concat class-direct-slots)
+  (->> (filter keyword? (concat (take-while (complement (set type)) (rest class-precedence-list))
+                                subClassOf equivalentClass))
        (distinct)
-       (map #(mop/compute-effective-slot-definition class (:db/ident %) [%]))))
+       (mapcat mop/class-direct-slots)
+       (concat (mop/class-direct-slots :rdfs/Resource) class-direct-slots)
+       (filter (fn [{:rdfs/keys [domain]}] (some #(isa? ident %) domain)))
+       (group-by :db/ident)
+       (mapv #(mop/compute-effective-slot-definition class (key %) (val %)))))
 
 (defmethod mop/slot-definition-initfunction :rdfs/Class
   [slot]
@@ -336,7 +339,7 @@
   ;; slot names? It does have inheritance of property
   ;; semantics. Should effective slot definitions incorporate all of
   ;; that computed property precedence information? Probably? I think
-  ;; so.
+  ;; so...?
   (reduce merge direct-slot-definitions)
   #_(reduce (fn [effective-slot-def direct-slot-def]
             (cond-> (-> effective-slot-def
@@ -400,7 +403,7 @@
 
 (defmethod mop/class-direct-superclasses :rdfs/Class
   [{:rdfs/keys [subClassOf]}]
-  (filterv keyword? subClassOf))
+  (filter keyword? subClassOf))
 
 (defmethod mop/class-direct-subclasses :rdfs/Class
   [{:db/keys [ident]

@@ -178,10 +178,37 @@
                                       [(== ?unionClass ?class)]))]}
               (:db/ident class)))
 
+(defmethod mop/class-direct-slots :owl/Restriction
+  [{:owl/keys [onProperty
+               minCardinality
+               maxCardinality
+               allValuesFrom]
+    :as class}]
+  [(cond-> {:db/ident onProperty}
+     allValuesFrom (update :rdfs/range (fnil conj #{}) allValuesFrom)
+     minCardinality (assoc :owl/minCardinality minCardinality)
+     maxCardinality (assoc :owl/maxCardinality maxCardinality))])
+
 (defmethod mop/class-direct-slots :rdfs/Class
-  [class]
+  [{:db/keys [ident]
+    :mop/keys [class-direct-slots]
+    :rdfs/keys [subClassOf]
+    :owl/keys [intersectionOf unionOf]
+    :as class}]
   (or (not-empty (:mop/class-direct-slots class))
-      (get-in rdf/*indexes* [:slots/by-domain (:db/ident class)])))
+      (not-empty (concat (and ident (get-in rdf/*indexes* [:slots/by-domain ident]))
+                         (some->> (remove keyword? (concat intersectionOf
+                                                           unionOf
+                                                           subClassOf))
+                                  (mapcat mop/class-direct-slots)
+                                  (map rdf/direct-slot-definition)
+                                  (group-by :db/ident)
+                                  (vals)
+                                  (reduce (fn [slots maps]
+                                            (conj slots (update (reduce merge maps)
+                                                                :rdfs/domain (fnil conj #{})
+                                                                ident)))
+                                          []))))))
 
 (defmethod mop/class-default-initargs :rdfs/Class
   [class]
@@ -299,20 +326,15 @@
     :rdfs/keys [subClassOf]
     :owl/keys  [deprecated equivalentClass]
     :as        class}]
-  (->> (filter keyword? (concat (take-while (let [rdf-type (if (and (coll? type) (not (map? type)))
-                                                             (set type)
-                                                             #{type})]
-                                              (complement (if (some #{:owl/NamedIndividual} rdf-type)
-                                                            #{:owl/NamedIndividual}
-                                                            rdf-type)))
-                                            (rest (or class-precedence-list
-                                                      (mop/compute-class-precedence-list class))))
+  (->> (filter keyword? (concat (take-while (complement #{:owl/NamedIndividual :owl/Class :rdfs/Class})
+                                            (or class-precedence-list
+                                                (mop/compute-class-precedence-list class)))
                                 subClassOf
                                 equivalentClass))
        (mapcat mop/class-direct-slots)
-       (concat (or class-direct-slots (mop/class-direct-slots class)))
        (remove (fn [{:db/keys [ident] :rdf/keys [type]}] (some #(isa? % :owl/AnnotationProperty) type)))
-       (filter (fn [{:rdfs/keys [domain]}] (some #(isa? ident %) domain)))
+       (filter (fn [{:rdfs/keys [domain] :as slot}]
+                 (some #(isa? ident %) domain)))
        (group-by :db/ident)
        (mapv #(mop/compute-effective-slot-definition class (key %) (val %)))))
 

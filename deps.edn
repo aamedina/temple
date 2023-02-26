@@ -2,7 +2,8 @@
  {org.clojure/clojure
   {:mvn/version "1.11.1"}
   io.github.aamedina/rdf
-  {:git/sha "2d01763ac1886e4cedf1d09032eebb6f8bce6c21"}
+  #_{:git/sha "2d01763ac1886e4cedf1d09032eebb6f8bce6c21"}
+  {:local/root "../rdf"}
   io.github.aamedina/mop
   {:git/sha "bf24638ab532741957e6972d86d2f8c39356c4cd"}
   io.github.aamedina/openai

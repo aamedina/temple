@@ -182,10 +182,82 @@
   [{:owl/keys [onProperty
                minCardinality
                maxCardinality
-               allValuesFrom]
+               allValuesFrom
+               someValuesFrom]
     :as class}]
+  ;; TODO: figure out the following restrictions...
+  
+  ;; The value constraint owl:allValuesFrom is a built-in OWL property
+  ;; that links a restriction class to either a class description or a
+  ;; data range. A restriction containing an owl:allValuesFrom
+  ;; constraint is used to describe a class of all individuals for
+  ;; which all values of the property under consideration are either
+  ;; members of the class extension of the class description or are
+  ;; data values within the specified data range. In other words, it
+  ;; defines a class of individuals x for which holds that if the pair
+  ;; (x,y) is an instance of P (the property concerned), then y should
+  ;; be an instance of the class description or a value in the data
+  ;; range, respectively.
+
+  ;; This example describes an anonymous OWL class of all individuals
+  ;; for which the hasParent property only has values of class
+  ;; Human. Note that this class description does not state that the
+  ;; property always has values of this class; just that this is true
+  ;; for individuals that belong to the class extension of the
+  ;; anonymous restriction class.
+
+  ;; NOTE: In OWL Lite the only type of class description allowed as
+  ;; object of owl:allValuesFrom is a class name.
+
+  ;; An owl:allValuesFrom constraint is analogous to the universal
+  ;; (for-all) quantifier of Predicate logic - for each instance of
+  ;; the class that is being described, every value for P must fulfill
+  ;; the constraint. Also notice that the correspondence of
+  ;; owl:allValuesFrom with the universal quantifier means that an
+  ;; owl:allValuesFrom constraint for a property P is trivially
+  ;; satisfied for an individual that has no value for property P at
+  ;; all. To see why this is so, observe that the owl:allValuesFrom
+  ;; constraint demands that all values of P should be of type T, and
+  ;; if no such values exist, the constraint is trivially true.
+
+  ;;   A simple example:
+
+  ;; {:rdf/type :owl/Restriction
+  ;;  :owl/onProperty :hasParent
+  ;;  :owl/allValuesFrom :Human}
+
+
+  ;; The value constraint owl:someValuesFrom is a built-in OWL
+  ;; property that links a restriction class to a class description or
+  ;; a data range. A restriction containing an owl:someValuesFrom
+  ;; constraint describes a class of all individuals for which at
+  ;; least one value of the property concerned is an instance of the
+  ;; class description or a data value in the data range. In other
+  ;; words, it defines a class of individuals x for which there is at
+  ;; least one y (either an instance of the class description or value
+  ;; of the data range) such that the pair (x,y) is an instance of
+  ;; P. This does not exclude that there are other instances (x,y') of
+  ;; P for which y' does not belong to the class description or data
+  ;; range.
+
+;;   The following example defines a class of individuals which have
+;;   at least one parent who is a physician:
+
+  ;; {:rdf/type :owl/Restriction
+  ;;  :owl/onProperty :hasParent
+  ;;  :owl/someValuesFrom :Physician}
+
+  ;; The owl:someValuesFrom constraint is analogous to the existential
+  ;; quantifier of Predicate logic - for each instance of the class
+  ;; that is being defined, there exists at least one value for P that
+  ;; fulfills the constraint.
+
+  ;; NOTE: In OWL Lite the only type of class description allowed as
+  ;; object of owl:someValuesFrom is a class name.
+
   [(cond-> {:db/ident onProperty}
      allValuesFrom (update :rdfs/range (fnil conj #{}) allValuesFrom)
+     someValuesFrom (update :rdfs/range (fnil conj #{}) someValuesFrom)
      minCardinality (assoc :owl/minCardinality minCardinality)
      maxCardinality (assoc :owl/maxCardinality maxCardinality))])
 
@@ -326,8 +398,15 @@
     :rdfs/keys [subClassOf]
     :owl/keys  [deprecated equivalentClass]
     :as        class}]
-  (->> (filter keyword? (concat (take-while (complement #{:owl/NamedIndividual :owl/Class :rdfs/Class
-                                                          :owl/ObjectProperty :rdf/Property})
+  (->> (filter keyword? (concat (take-while (complement (cond
+                                                          (isa? ident :owl/NamedIndividual)
+                                                          #{:owl/NamedIndividual :owl/ObjectProperty :rdf/Propert}
+
+                                                          (isa? ident :owl/Class)
+                                                          #{:owl/Class :owl/ObjectProperty :rdf/Property}
+
+                                                          :else
+                                                          #{:rdfs/Class :owl/ObjectProperty :rdf/Property}))
                                             (or class-precedence-list
                                                 (mop/compute-class-precedence-list class)))
                                 subClassOf

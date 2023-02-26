@@ -305,6 +305,7 @@
        (distinct)
        (mapcat mop/class-direct-slots)
        (concat (mop/class-direct-slots :rdfs/Resource) class-direct-slots)
+       (remove (fn [{:db/keys [ident] :rdf/keys [type]}] (some #(isa? % :owl/AnnotationProperty) type)))
        (filter (fn [{:rdfs/keys [domain]}] (some #(isa? ident %) domain)))
        (group-by :db/ident)
        (mapv #(mop/compute-effective-slot-definition class (key %) (val %)))))

@@ -299,9 +299,12 @@
     :rdfs/keys [subClassOf]
     :owl/keys  [deprecated equivalentClass]
     :as        class}]  
-  (->> (filter keyword? (concat (take-while (complement (if (some #{:owl/NamedIndividual} type)
-                                                          #{:owl/Class :owl/NamedIndividual}
-                                                          (set type)))
+  (->> (filter keyword? (concat (take-while (let [rdf-type (if (and (coll? type) (not (map? type)))
+                                                             (set type)
+                                                             #{type})]
+                                              (complement (if (some #{:owl/NamedIndividual} rdf-type)
+                                                            #{:owl/Class :owl/NamedIndividual}
+                                                            (set rdf-type))))
                                             (rest (or class-precedence-list
                                                       (mop/compute-class-precedence-list class))))
                                 subClassOf

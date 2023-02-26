@@ -6,11 +6,7 @@
   io.github.aamedina/mop
   {:git/sha "bf24638ab532741957e6972d86d2f8c39356c4cd"}
   io.github.aamedina/openai
-  {:git/sha "44567680df18891ae8849b729f2dcf92a5204042"}
-  com.xtdb/xtdb-core
-  {:mvn/version "1.23.0"}
-  com.xtdb/xtdb-lucene
-  {:mvn/version "1.23.0"}}
+  {:git/sha "44567680df18891ae8849b729f2dcf92a5204042"}}
  :paths ["src" "classes" "resources"]
  :aliases
  {:dev

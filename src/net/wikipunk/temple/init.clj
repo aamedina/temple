@@ -511,6 +511,7 @@
   [{:db/keys [ident]}]
   (into [ident] (sort isa? (disj (ancestors ident)
                                  :owl/Thing
+                                 :owl/NamedIndividual
                                  :oboInOwl/ObsoleteClass
                                  :oboInOwl/ObsoleteProperty))))
 

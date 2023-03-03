@@ -178,6 +178,10 @@
                                       [(== ?unionClass ?class)]))]}
               (:db/ident class)))
 
+(defmethod mop/class-direct-slots clojure.lang.IPersistentMap
+  [class]
+  nil)
+
 (defmethod mop/class-direct-slots :owl/Restriction
   [{:owl/keys [onProperty
                minCardinality
@@ -240,8 +244,8 @@
   ;; P for which y' does not belong to the class description or data
   ;; range.
 
-;;   The following example defines a class of individuals which have
-;;   at least one parent who is a physician:
+  ;;   The following example defines a class of individuals which have
+  ;;   at least one parent who is a physician:
 
   ;; {:rdf/type :owl/Restriction
   ;;  :owl/onProperty :hasParent
